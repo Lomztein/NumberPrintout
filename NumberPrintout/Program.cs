@@ -24,30 +24,21 @@ namespace NumberPrintout {
         */
 
         static Dictionary<int, string> prefixes = new Dictionary<int, string> ();
+        static Dictionary<int, string> superPrefixes = new Dictionary<int, string> ();
+        static Dictionary<int, string> superSuffixes = new Dictionary<int, string> ();
+
+        static long numbersCrunched = 0; // I suppose this is some way represents the depth of the current iteration.
 
         static void Main(string [ ] args) {
-            prefixes.Add (2, "hundred");
-            prefixes.Add (3, "thousand");
-            prefixes.Add (6, "million");
-            prefixes.Add (9, "billion");
-            prefixes.Add (12, "trillion");
-            prefixes.Add (15, "quadrillion");
-            prefixes.Add (18, "quintillion");
-            prefixes.Add (21, "sextillion");
-            prefixes.Add (24, "septillion");
-            prefixes.Add (27, "octillion");
-            prefixes.Add (30, "nonillion");
-            prefixes.Add (33, "decillion");
-            prefixes.Add (36, "undecillion");
-            prefixes.Add (39, "duodecillion");
-            prefixes.Add (42, "tredecillion");
-            prefixes.Add (100, "googol");
-            // Next is a googolplex, which is a ten followed by a googol zeroes, and I'm not gonna type that in.
-
+            PopulatePrefixes ();
+            string input = args.Length > 0 ? args [ 0 ] : "";
             bool running = true;
             BigInteger number = 0;
+
+            // Don't read this, or I fear it might be awarded the worst interaction code in human history.
             while (running) {
-                string input = Console.ReadLine ();
+                if (input == "")
+                    input = Console.ReadLine ();
 
                 if (BigInteger.TryParse (input, out number)) { // A number is input
                     Console.WriteLine (NumberToEnglish (number.ToString (), "", false));
@@ -64,12 +55,20 @@ namespace NumberPrintout {
                     } else {
                         Console.WriteLine ("Failed to parse start and/or stop.");
                     }
+
                 } else if (File.Exists (input)) { // A file is input
-                    Console.WriteLine (NumberToEnglish (File.ReadAllText (input), "", false));
+                    Console.WriteLine ("Loading file..");
+                    string text = File.ReadAllText (input);
+                    Console.WriteLine ("File loaded: " + text);
+                    Console.WriteLine (NumberToEnglish (text, "", false));
 
                 } else {
                     Console.WriteLine ("Failed to do anything, please try again.");
                 }
+
+                Console.WriteLine ("Recursive iterations: " + numbersCrunched);
+                numbersCrunched = 0;
+                input = "";
             }
         }
 
@@ -94,7 +93,7 @@ namespace NumberPrintout {
                 atMagnitude.Reverse (); // Reverse so they actually fit the name.
                 // atMagnitudes is filled, now to parse them..
 
-                BigInteger highestMagnitudeNumber = new BigInteger(0);
+                BigInteger highestMagnitudeNumber = new BigInteger (0);
                 string magnitudePrefix = "";
                 for (int i = 0; i < atMagnitude.Count; i++) {
                     string newPrefix = GetMagnitudePrefix (i, out highestMagnitudeNumber);
@@ -106,24 +105,40 @@ namespace NumberPrintout {
                 bool addedSubTwenty = false;
                 if (highestMagnitudeNumber == 0) {
                     // Is below any magnitude, AE below 100.
+                    bool addAnd = false;
+                    if (atMagnitude.Count > 0 && atMagnitude [ 0 ] != 0) {
+                        addAnd = true;
+                    } else if (atMagnitude.Count > 1 && atMagnitude [ 1 ] != 0) {
+                        addAnd = true;
+                    } // These could likely be compressed, but that would be a flustercuck.
+
+                    if (suffix == "" && addAnd && numbersCrunched != 0)
+                        AddToResult (ref result, "and");
+
                     if (atMagnitude.Count > 1) {
                         if (atMagnitude [ 1 ] == 1) {
-                            result += GetSubTwenty (atMagnitude [ 0 ], atMagnitude [ 1 ]);
+                            AddToResult (ref result, GetSubTwenty (atMagnitude [ 0 ], atMagnitude [ 1 ]));
                             addedSubTwenty = true;
                         } else {
-                            result += TenthToEnglish (atMagnitude [ 1 ]) + "ty ";
+                            AddToResult (ref result, TenthToEnglish (atMagnitude [ 1 ]) + "ty");
                         }
                     }
                     if (atMagnitude.Count > 0) {
-                        if (!addedSubTwenty)
-                            result += OnethToEnglish (atMagnitude [ 0 ]);
+                        if (!addedSubTwenty) {
+                            AddToResult (ref result, OnesToEnglish (atMagnitude [ 0 ]));
+                        }
                     }
-                    result += " " + suffix;
+
+                    AddToResult (ref result, suffix);
                 } else {
                     // Is above a magnitude AE above or equal to 100.
                     string pastMagnitude = number.ToString ().Substring (0, number.ToString ().Length - (highestMagnitudeNumber.ToString ().Length - 1));
                     string postMagnitude = number.ToString ().Substring (pastMagnitude.Length);
-                    result += NumberToEnglish (pastMagnitude, magnitudePrefix, true) + " " + NumberToEnglish (postMagnitude, "", true) + suffix;
+                    numbersCrunched++;
+
+                    if (suffix != "" && postMagnitude.Length != 0)
+                        suffix += ",";
+                    AddToResult (ref result, NumberToEnglish (pastMagnitude, magnitudePrefix, true) + NumberToEnglish (postMagnitude, "", true) + suffix);
                 }
 
             } else {
@@ -131,6 +146,20 @@ namespace NumberPrintout {
             }
 
             return result;
+        }
+
+        public static void AddToResult(ref string result, string toAdd) {
+            if (toAdd == "")
+                return;
+
+            result += toAdd;
+            if (result.Length > 0) {
+                if (result [ result.Length - 1 ] != ' ') {
+                    result += " ";
+                }
+            } else {
+                result += " ";
+            }
         }
 
         public static string GetMagnitudePrefix(int magnitude, out BigInteger magnitudeNumber) {
@@ -157,7 +186,7 @@ namespace NumberPrintout {
                     case 1:
                         return "eleven";
                     case 2:
-                        return "twelfth";
+                        return "twelve";
                     default:
                         return TenthToEnglish (ones) + "teen";
                 }
@@ -177,11 +206,11 @@ namespace NumberPrintout {
                 case 8:
                     return "eigh";
                 default:
-                    return OnethToEnglish (tenth);
+                    return OnesToEnglish (tenth);
             }
         }
 
-        public static string OnethToEnglish(byte ones) {
+        public static string OnesToEnglish(byte ones) {
             switch (ones) {
                 case 1:
                     return "one";
@@ -204,6 +233,54 @@ namespace NumberPrintout {
 
                 default:
                     return "";
+            }
+        }
+
+        public static void PopulatePrefixes() {
+            prefixes.Add (2, "hundred");
+            prefixes.Add (3, "thousand");
+            prefixes.Add (6, "million");
+            prefixes.Add (9, "billion");
+            prefixes.Add (12, "trillion");
+            prefixes.Add (15, "quadrillion");
+            prefixes.Add (18, "quintillion");
+            prefixes.Add (21, "sextillion");
+            prefixes.Add (24, "septillion");
+            prefixes.Add (27, "octillion");
+            prefixes.Add (30, "nonillion");
+            // Source (Wolfram Alpha) doesn't go above magnitude 100 (googol), except for a Googolplex, so I've followed the given pattern after that. Most likely wrong, but whatever, we get 300 magnitudes!
+
+            superSuffixes.Add (33, "decillion");
+            superSuffixes.Add (63, "vigintillion");
+            superSuffixes.Add (93, "trigintillion");
+            superSuffixes.Add (123, "quattuorgintillion");
+            superSuffixes.Add (153, "quingintillion");
+            superSuffixes.Add (183, "sexgintillion");
+            superSuffixes.Add (213, "septemgintillion");
+            superSuffixes.Add (243, "octogintillion");
+            superSuffixes.Add (273, "novemgintillion");
+            superPrefixes.Add (0, "");
+            superPrefixes.Add (3, "un");
+            superPrefixes.Add (6, "duo");
+            superPrefixes.Add (9, "tri");
+            superPrefixes.Add (12, "quattuor");
+            superPrefixes.Add (15, "quin");
+            superPrefixes.Add (18, "sex"); // /lennyface
+            superPrefixes.Add (21, "septem");
+            superPrefixes.Add (24, "octo");
+            superPrefixes.Add (27, "novem");
+            // I could do something fancy with the code that gets these for the numbers, but I ain't gonna. They'll just be automatically generated for the prefixes dictionary.
+
+            foreach (KeyValuePair<int, string> suffix in superSuffixes) {
+                foreach (KeyValuePair<int, string> prefix in superPrefixes) {
+                    prefixes.Add (prefix.Key + suffix.Key, prefix.Value + suffix.Value);
+                }
+            }
+        }
+
+        public void PrintMagnitudes() {
+            foreach (KeyValuePair<int, string> prefix in prefixes) {
+                Console.WriteLine (prefix);
             }
         }
     }

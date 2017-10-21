@@ -21,6 +21,11 @@ namespace NumberPrintout {
          * splitting the number up into prefixes which are then individually torn down into
          * the smallest prefix (hundred). Once this is done, they are named. Everything
          * is being stitched together on the fly. The stitching part is a mess, don't look at it, please.
+         * 
+         * It should be noted that this is most likely an awful solution to the problem at hand, and it
+         * was basicly made from an amalgemation of another completely wrong idea. I'm 95% sure I could
+         * use the experience gained from this and write a both faster and neater algorithm.
+         * However, this was a single-hour project, and I can't be arsed to rewrite it.
         */
 
         static Dictionary<int, string> prefixes = new Dictionary<int, string> ();
